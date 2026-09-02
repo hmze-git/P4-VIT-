@@ -19,4 +19,6 @@ class NumpyLoader(Dataset):
 
         return x,y
     def __len__(self):
+
+        
         return self.xData.shape[0]

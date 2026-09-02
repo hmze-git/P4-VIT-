@@ -9,8 +9,10 @@ class SkinCancerLSTMViT(nn.Module):
         self.skinViT=ViT
         self.Lstm= nn.LSTM(input_size=inputDim,hidden_size=hiddenDim,batch_first=batchFirst)
         self.fullConnect=nn.Sequential(
+            nn.Dropout(0.5),
             nn.Linear(hiddenDim,32),
             nn.ReLU(),
+            nn.Dropout(0.25),
             nn.Linear(32,numClasses)
         )
 
@@ -27,4 +29,4 @@ class SkinCancerLSTMViT(nn.Module):
 
         out=self.fullConnect(out[:,-1,:])
 
-        return out,hn,cn
+        return out
