@@ -41,7 +41,7 @@ modelName="Anwarkh1/Skin_Cancer-Image_Classification"
 preTrainedViT=ViTForImageClassification.from_pretrained(modelName)
 
 inputDim=768
-hiddenSize=64
+hiddenSize=128
 for p in preTrainedViT.vit.parameters():
   p.requires_grad = False
 
@@ -51,7 +51,7 @@ preTrainedViT.eval()
 FullModel=SkinCancerLSTMViT(preTrainedViT,hiddenSize,inputDim,True,3)
 
 #Early Stopping Init
-earlStop=EarlyStopping(patience=5,delta=0)
+earlStop=EarlyStopping(patience=20,delta=0)
 
 learningRate=0.001
 
@@ -233,4 +233,4 @@ def saveModel(model,epoch,optimiser,vLoss,loss):
 
    
 
-trainingLoop(200,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric)
+trainingLoop(500,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric)
