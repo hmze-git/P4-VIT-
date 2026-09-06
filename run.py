@@ -242,4 +242,4 @@ def saveModel(model,epoch,optimiser,vLoss,loss):
 
    
 
-trainingLoop(500,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric)
+trainingLoop(25,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric)

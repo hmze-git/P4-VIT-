@@ -10,7 +10,7 @@ class EarlyStopping:
     def stopEarly(self,validationLoss):
         if validationLoss<self.bestLoss:
             self.noImprovementCount=0
-            self.bestLoss-validationLoss
+            self.bestLoss=validationLoss
         elif validationLoss>(self.bestLoss+self.delta):
             self.noImprovementCount+=1
             if self.patience<=self.noImprovementCount:
