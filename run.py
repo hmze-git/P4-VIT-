@@ -5,14 +5,14 @@ import npyFileDataloader
 
 from transformers import ViTForImageClassification
 from torch.utils.data import Subset
-import torchinfo
-import torchmetrics
 from torchmetrics import classification
 from ViT import SkinCancerLSTMViT
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-import matplotlib as plt
+import matplotlib.pyplot as plt
+from EarlyStopper import EarlyStopping
+
 device=None
-if torch.cuda.is_available:
+if torch.cuda.is_available():
   device=torch.device('cuda')
 
 def setSeed():
@@ -28,8 +28,10 @@ setSeed()
 NpFile=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\InputFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\OutputTags.npy")
 NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\validationFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\validationTags.npy")
 
-smallTest=Subset(NpFile,list(range(12)))
-smallLoader=DataLoader(smallTest,batch_size=1,shuffle=True)
+#smallTest=Subset(NpFile,list(range(12)))
+#smallLoader=DataLoader(smallTest,batch_size=2,shuffle=True)
+#smallValidTest=Subset(NPFileTest,list(range(12)))
+#smallValidLoad=DataLoader(smallValidTest,batch_size=2)
 
 trainLoader=DataLoader(NpFile,batch_size=4,shuffle=True)
 testLoader=DataLoader(NPFileTest,batch_size=4) # dont shuffle so that when testing it gets items in same order so it wont fluctuate based on what was given first
@@ -48,6 +50,9 @@ preTrainedViT.eval()
 
 FullModel=SkinCancerLSTMViT(preTrainedViT,hiddenSize,inputDim,True,3)
 
+#Early Stopping Init
+earlStop=EarlyStopping(patience=20,delta=0)
+
 learningRate=0.001
 
 
@@ -59,8 +64,9 @@ adamOptimiser=torch.optim.Adam(params=FullModel.parameters(),lr=learningRate)
 #tr step lr reduce learn rate by 10X every 10 epochs
 #if this does not work try ReduceLRONPateu for when valid accuracy taps out
 
-stepLearnDecay=torch.optim.lr_scheduler.StepLR(adamOptimiser,5,0.1)
-stepLearnDecay.optimizer.zero_grad
+
+stepLearnDecay=torch.optim.lr_scheduler.StepLR(adamOptimiser,5,0.5)
+
 
 metric=classification.Accuracy(task='multiclass',num_classes=3)
 testMetric=classification.Accuracy(task='multiclass',num_classes=3)
@@ -69,6 +75,11 @@ testMetric=testMetric.to(device)
 
 if device is not None:
   FullModel=FullModel.to(device)
+
+  if torch.cuda.device_count()>1:
+     FullModel=nn.DataParallel(FullModel)
+     
+
 
 
 
@@ -102,7 +113,7 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
 
     #set model to evaluation mode to calc validation loss and accuracy
   model.eval()
-  with torch.inference_mode():
+  with torch.no_grad():
     
     for batch,(x,y) in enumerate(testLoader):
         validInput=x.to(device)
@@ -120,10 +131,10 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
   validNormLoss=validationLoss/len(testLoader)
 
   print(f"Epoch {epoch} | Loss {normLoss} | Validation Loss {validNormLoss} | Accuracy {epochAccuracy} | Valid Accuracy {epochValidationAccuary}")
-  lossArr.append(normLoss)
-  valLossArr.append(validNormLoss)
-  accArr.append(epochAccuracy)
-  valAccArr.append(epochValidationAccuary)
+  lossArr.append(normLoss.cpu().item())
+  valLossArr.append(validNormLoss.cpu().item())
+  accArr.append(epochAccuracy.cpu().item())
+  valAccArr.append(epochValidationAccuary.cpu().item())
 
     
 
@@ -149,30 +160,37 @@ def trainingLoop(epochs,model,dataLoad,testDataLoad,lossFN,testLossFn,Optimiser,
          bestValAcc=mrValAcc
          saveModel(model,e,Optimiser,valLossArr[-1],lossArr[-1])
 
-
+      # array stores the very last loss value so this should work for early stopping
+      if earlStop.stopEarly(valLossArr[-1]):
+        print(f"Stopping early at Epoch {e}")
+        break
+        
 
       metric.reset()
       testMetric.reset()
-      lrDecay.step()
+      #lrDecay.step()
 
-  savedModelDict=torch.load('savedModel.tar')
+  savedModelDict=torch.load('savedModel.tar',map_location=device)
 
-  model.load_state_dict(savedModelDict['modelStateDict'])  
+  modelToLoad=model.module if isinstance(model,nn.DataParallel) else model
+  modelToLoad.load_state_dict(savedModelDict['modelStateDict'])  
   model.eval()
-  with torch.inference_mode():
+  with torch.no_grad():
 
     yPredict=[] 
     yTrue=[]
-    for batch,(x,y) in enumerate(testLoader):
+    for batch,(x,y) in enumerate(testDataLoad):
         validInput=x.to(device)
-        validLabel=y.to(device)
+
 
         validationPreds=model(validInput)
-        validIndex=torch.argmax(validationPreds)
-        yPredict.append(validIndex)
-        yTrue.append(y)
+        validIndex=torch.argmax(validationPreds,dim=1)
+        yPredict.extend(validIndex.cpu().tolist())
+        yTrue.extend(y.cpu().tolist())
 
-    confMatrix=confusion_matrix(yTrue,yPredict)
+   # print("whats here",yTrue)
+   # print("whats here 2",yPredict)
+    confMatrix=confusion_matrix(yTrue,yPredict,labels=[0,1,2])
     disp=ConfusionMatrixDisplay(confusion_matrix=confMatrix,display_labels=[0,1,2])
     disp.plot(cmap='Blues')
     plt.savefig('confMatrix.png')
@@ -195,24 +213,24 @@ def trainingLoop(epochs,model,dataLoad,testDataLoad,lossFN,testLossFn,Optimiser,
     plt.ylabel('loss')
     plt.xlabel('epoch')
     plt.legend(['train','val'])
-    plt.show()
     plt.savefig('NormVsValLoss.png')
+    plt.show()
+
 
 
 
     
 def saveModel(model,epoch,optimiser,vLoss,loss):
 
-   torch.save({
+  modelToSave=model.module if isinstance(model,nn.DataParallel) else model
+  torch.save({
       'epoch':epoch,
-      'modelStateDict':model.state_dict(),
+      'modelStateDict':modelToSave.state_dict(),
       'optimiserStateDict':optimiser.state_dict(),
       'valLoss':vLoss,
       'loss':loss
    },'savedModel.tar')
+
    
 
-  
-
-
-trainingLoop(5,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric)
+trainingLoop(25,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric)
