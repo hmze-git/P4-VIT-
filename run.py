@@ -25,8 +25,8 @@ def setSeed():
 
 setSeed()
 
-NpFile=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\InputFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\OutputTags.npy")
-NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\validationFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\validationTags.npy")
+NpFile=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\InputFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\OutputTags.npy",True)
+NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\validationFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\validationTags.npy",False)
 
 #smallTest=Subset(NpFile,list(range(12)))
 #smallLoader=DataLoader(smallTest,batch_size=2,shuffle=True)
@@ -36,7 +36,11 @@ NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Honours P
 trainLoader=DataLoader(NpFile,batch_size=4,shuffle=True)
 testLoader=DataLoader(NPFileTest,batch_size=4) # dont shuffle so that when testing it gets items in same order so it wont fluctuate based on what was given first
 
-modelName="Anwarkh1/Skin_Cancer-Image_Classification"
+
+#skin cancer link Anwarkh1/Skin_Cancer-Image_Classification
+
+
+modelName="google/vit-base-patch16-224"
 
 preTrainedViT=ViTForImageClassification.from_pretrained(modelName)
 
@@ -88,6 +92,11 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
   #put mode; in train mode
   #change to model.eval whne doing validation loss etc
   model.train()
+
+  if isinstance(model,nn.DataParallel):
+      model.module.skinViT.eval()
+  else:
+     model.skinViT.eval()
 
   accumulatedLoss=0.0
   validationLoss=0.0

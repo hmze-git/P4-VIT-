@@ -4,12 +4,26 @@ from torch.utils.data import Dataset
 from torchvision.transforms import v2
 
 class NumpyLoader(Dataset):
-    def __init__(self,xPath,yPath):
+    def __init__(self,xPath,yPath,trainMode=True):
         super().__init__()
         self.xPath=xPath
         self.yPath=yPath
         self.xData=np.load(self.xPath,mmap_mode='r')
         self.yData=np.load(self.yPath,mmap_mode='r')
+
+        normalise=v2.Normalize(mean=[0.5,0.5,0.5],std=[0.5,0.5,0.5])
+        if trainMode:
+               self.transformed=v2.Compose([
+                        v2.RandomResizedCrop(size=(224,224),antialias=True,scale=(0.6,1.0)),
+                        v2.ColorJitter(brightness=0.3,contrast=0.2,saturation=0.2),
+                        v2.RandomHorizontalFlip(0.5),
+                        normalise
+                    ])
+        else:
+             self.transformed=v2.Compose([
+                  normalise
+                  
+             ])
 
 
     def __getitem__(self,idx):
@@ -18,13 +32,8 @@ class NumpyLoader(Dataset):
         x=torch.from_numpy(np.asarray(self.xData[idx])).permute(0,3,1,2).contiguous()
 
         
-        transformed=v2.Compose([
-            v2.RandomResizedCrop(size=(224,224),antialias=True),
-            v2.ColorJitter(brightness=0.3,contrast=0.2,saturation=0.2),
-            v2.RandomHorizontalFlip(0.5)
-        ])
-
-        x=transformed(x)
+     
+        x=self.transformed(x)
         y=torch.from_numpy(np.asarray(self.yData[idx]))
 
         return x,y
