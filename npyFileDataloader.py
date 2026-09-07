@@ -4,12 +4,14 @@ from torch.utils.data import Dataset
 from torchvision.transforms import v2
 
 class NumpyLoader(Dataset):
-    def __init__(self,xPath,yPath,trainMode=True):
+    def __init__(self,xPath,yPath,frameLenPAth,trainMode=True):
         super().__init__()
         self.xPath=xPath
         self.yPath=yPath
+        self.fRPath=frameLenPAth
         self.xData=np.load(self.xPath,mmap_mode='r')
         self.yData=np.load(self.yPath,mmap_mode='r')
+        self.frData=np.load(self.fRPath,mmap_mode='r')
 
         normalise=v2.Normalize(mean=[0.5,0.5,0.5],std=[0.5,0.5,0.5])
         if trainMode:
@@ -35,8 +37,9 @@ class NumpyLoader(Dataset):
      
         x=self.transformed(x)
         y=torch.from_numpy(np.asarray(self.yData[idx]))
+        fr=torch.from_numpy(np.asarray(self.frData[idx]))
 
-        return x,y
+        return x,y,fr
     def __len__(self):
 
         

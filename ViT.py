@@ -2,6 +2,7 @@ import torch
 from torch import nn
 
 
+
 class SkinCancerLSTMViT(nn.Module):
 
     def __init__(self,ViT,hiddenDim,inputDim,batchFirst,numClasses):
@@ -16,17 +17,26 @@ class SkinCancerLSTMViT(nn.Module):
             nn.Linear(32,numClasses)
         )
 
-    def forward(self,x):
+    def forward(self,x,realFrameLen):
 
   
         b,f,c,h,w=x.shape
         x=x.view(b*f,c,h,w)
+      
+
         #Get the actual numbers (vector after running forward prop)
         extractedFeatures=self.skinViT(x).logits
         extractedFeatures=extractedFeatures.view(b,f,-1)
 
-        out,(hn,cn)=self.Lstm(extractedFeatures)
+        #Real fram length padding handler
+        packed=nn.utils.rnn.pack_padded_sequence(extractedFeatures,realFrameLen,True,False)
 
+
+        #when usign pack padding it returns pack padded obj so unwrap that layer first to get usual shape
+        # then use the final frame as you wish 
+        packedOut,(hn,cn)=self.Lstm(packed)
+
+        out, outLen = nn.utils.rnn.pad_packed_sequence(packedOut, batch_first=True)
         out=self.fullConnect(out[:,-1,:])
 
         return out

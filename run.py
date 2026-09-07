@@ -25,8 +25,8 @@ def setSeed():
 
 setSeed()
 
-NpFile=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\InputFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\OutputTags.npy",True)
-NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\validationFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\validationTags.npy",False)
+NpFile=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\InputFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\OutputTags.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\RealFrameLen.npy",True)
+NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\validationFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\validationTags.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\ValidationRealFrameLen.npy",False)
 
 #smallTest=Subset(NpFile,list(range(12)))
 #smallLoader=DataLoader(smallTest,batch_size=2,shuffle=True)
@@ -55,7 +55,7 @@ preTrainedViT.eval()
 FullModel=SkinCancerLSTMViT(preTrainedViT,hiddenSize,inputDim,True,3)
 
 #Early Stopping Init
-earlStop=EarlyStopping(patience=20,delta=0)
+earlStop=EarlyStopping(patience=5,delta=0)
 
 learningRate=0.001
 
@@ -63,7 +63,7 @@ learningRate=0.001
 
 lossFunction=nn.CrossEntropyLoss()
 validationLossFunction=nn.CrossEntropyLoss()
-adamOptimiser=torch.optim.Adam(params=FullModel.parameters(),lr=learningRate)
+adamOptimiser=torch.optim.Adam(params=FullModel.parameters(),lr=learningRate,weight_decay=0.001)
 
 #tr step lr reduce learn rate by 10X every 10 epochs
 #if this does not work try ReduceLRONPateu for when valid accuracy taps out
@@ -100,12 +100,13 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
 
   accumulatedLoss=0.0
   validationLoss=0.0
-  for batch,(x,y) in enumerate(dataLoader):
+  for batch,(x,y,fr) in enumerate(dataLoader):
  
     xInput=x.to(device)
     yLabel=y.to(device)
+    realFrameLen=fr.to(device)
 
-    yPredictions=model(xInput)
+    yPredictions=model(xInput,realFrameLen)
 
 
     metric.update(yPredictions,yLabel)
@@ -124,11 +125,12 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
   model.eval()
   with torch.no_grad():
     
-    for batch,(x,y) in enumerate(testLoader):
+    for batch,(x,y,fr) in enumerate(testLoader):
         validInput=x.to(device)
         validLabel=y.to(device)
+        realFrameLen=fr.to(device)
 
-        validationPreds=model(validInput)
+        validationPreds=model(validInput,realFrameLen)
         testMetric.update(validationPreds,validLabel)
         validLoss=testLossFunction(validationPreds,validLabel)
         validationLoss+=validLoss
