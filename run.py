@@ -57,13 +57,16 @@ FullModel=SkinCancerLSTMViT(preTrainedViT,hiddenSize,inputDim,True,3)
 #Early Stopping Init
 earlStop=EarlyStopping(patience=5,delta=0)
 
-learningRate=0.001
 
+#linear scaling abtch size rule
+#when batch changes so must lr rule states new LR=lrOLd*(batchSizeNew/batchSizeOld)
+
+learningRate=0.0002
 
 
 lossFunction=nn.CrossEntropyLoss()
 validationLossFunction=nn.CrossEntropyLoss()
-adamOptimiser=torch.optim.Adam(params=FullModel.parameters(),lr=learningRate,weight_decay=0.001)
+adamOptimiser=torch.optim.AdamW(params=FullModel.parameters(),lr=learningRate,weight_decay=0.0001) # AdamW stated to be typically better for L2Reg lets see it in action
 
 #tr step lr reduce learn rate by 10X every 10 epochs
 #if this does not work try ReduceLRONPateu for when valid accuracy taps out
@@ -104,7 +107,7 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
  
     xInput=x.to(device)
     yLabel=y.to(device)
-    realFrameLen=fr.to(device)
+    realFrameLen=fr # do not send to cuda because it will break if you do
 
     yPredictions=model(xInput,realFrameLen)
 
@@ -128,7 +131,7 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
     for batch,(x,y,fr) in enumerate(testLoader):
         validInput=x.to(device)
         validLabel=y.to(device)
-        realFrameLen=fr.to(device)
+        realFrameLen=fr
 
         validationPreds=model(validInput,realFrameLen)
         testMetric.update(validationPreds,validLabel)
@@ -190,11 +193,12 @@ def trainingLoop(epochs,model,dataLoad,testDataLoad,lossFN,testLossFn,Optimiser,
 
     yPredict=[] 
     yTrue=[]
-    for batch,(x,y) in enumerate(testDataLoad):
+    for batch,(x,y,fr) in enumerate(testDataLoad):
         validInput=x.to(device)
+        realFrameLen=fr
 
 
-        validationPreds=model(validInput)
+        validationPreds=model(validInput,realFrameLen)
         validIndex=torch.argmax(validationPreds,dim=1)
         yPredict.extend(validIndex.cpu().tolist())
         yTrue.extend(y.cpu().tolist())

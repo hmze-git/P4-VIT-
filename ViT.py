@@ -36,7 +36,8 @@ class SkinCancerLSTMViT(nn.Module):
         # then use the final frame as you wish 
         packedOut,(hn,cn)=self.Lstm(packed)
 
-        out, outLen = nn.utils.rnn.pad_packed_sequence(packedOut, batch_first=True)
-        out=self.fullConnect(out[:,-1,:])
+        #out, outLen = nn.utils.rnn.pad_packed_sequence(packedOut, batch_first=True) 
+        #try using hn[-1] for last time step
+        out=self.fullConnect(hn[-1])
 
         return out
