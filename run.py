@@ -10,7 +10,7 @@ from ViT import SkinCancerLSTMViT
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 from EarlyStopper import EarlyStopping
-
+import numpy as np
 device=None
 if torch.cuda.is_available():
   device=torch.device('cuda')
@@ -66,7 +66,7 @@ learningRate=0.0002
 
 lossFunction=nn.CrossEntropyLoss()
 validationLossFunction=nn.CrossEntropyLoss()
-adamOptimiser=torch.optim.AdamW(params=FullModel.parameters(),lr=learningRate,weight_decay=0.0001) # AdamW stated to be typically better for L2Reg lets see it in action
+adamOptimiser=torch.optim.AdamW(params=FullModel.parameters(),lr=learningRate,weight_decay=0.001) # AdamW stated to be typically better for L2Reg lets see it in action
 
 #tr step lr reduce learn rate by 10X every 10 epochs
 #if this does not work try ReduceLRONPateu for when valid accuracy taps out
@@ -77,6 +77,8 @@ stepLearnDecay=torch.optim.lr_scheduler.StepLR(adamOptimiser,5,0.5)
 
 metric=classification.Accuracy(task='multiclass',num_classes=3)
 testMetric=classification.Accuracy(task='multiclass',num_classes=3)
+testPreicision=classification.MulticlassPrecision(num_classes=3,average=None)
+testRecall=classification.MulticlassRecall(num_classes=3,average=None)
 metric=metric.to(device)
 testMetric=testMetric.to(device)
 
@@ -91,7 +93,7 @@ if device is not None:
 
 
 
-def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLossFunction,optimiser,epoch,lossArr,valLossArr,accArr,valAccArr):
+def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLossFunction,optimiser,epoch,lossArr,valLossArr,accArr,valAccArr,testPres,testRec,testpressArr,testRecArr):
   #put mode; in train mode
   #change to model.eval whne doing validation loss etc
   model.train()
@@ -135,35 +137,44 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
 
         validationPreds=model(validInput,realFrameLen)
         testMetric.update(validationPreds,validLabel)
+        testPres.update(validationPreds,validLabel)
+        testRec.update(validationPreds,validLabel)
         validLoss=testLossFunction(validationPreds,validLabel)
         validationLoss+=validLoss
 
 
   epochAccuracy=metric.compute()
   epochValidationAccuary=testMetric.compute()
+
+  epochValidationPrecision=testPres.compute()
+  epochValidationRecall=testRec.compute()
   normLoss=accumulatedLoss/len(dataLoader)
   validNormLoss=validationLoss/len(testLoader)
 
-  print(f"Epoch {epoch} | Loss {normLoss} | Validation Loss {validNormLoss} | Accuracy {epochAccuracy} | Valid Accuracy {epochValidationAccuary}")
+  print(f"Epoch {epoch} | Loss {normLoss} | Validation Loss {validNormLoss} | Accuracy {epochAccuracy} | Valid Accuracy {epochValidationAccuary} | Class 1 Precision {epochValidationPrecision[0]} | Class 2 Precision {epochValidationPrecision[1]}| Class 3 Precision {epochValidationPrecision[2]} | Class 1 Recall {epochValidationRecall[0]} | Class 2 Recall {epochValidationRecall[1]} | Class 3 Recall {epochValidationRecall[2]}  ")
   lossArr.append(normLoss.cpu().item())
   valLossArr.append(validNormLoss.cpu().item())
   accArr.append(epochAccuracy.cpu().item())
   valAccArr.append(epochValidationAccuary.cpu().item())
+  testpressArr.append(epochValidationPrecision.cpu().item())
+  testRecArr.append(epochValidationRecall.cpu().item())
 
     
 
    
-def trainingLoop(epochs,model,dataLoad,testDataLoad,lossFN,testLossFn,Optimiser,lrDecay,metric,testMetric):
+def trainingLoop(epochs,model,dataLoad,testDataLoad,lossFN,testLossFn,Optimiser,lrDecay,metric,testMetric,testPres,testRec):
 
   lossArr=[]
   valLossArr=[]
   accArr=[]
   valAcc=[]
+  testPresA=[]
+  testRecA=[]
 
   bestValAcc=0.0
   for e in range(epochs):
       
-      trainStep(model,dataLoad,testDataLoad,metric,testMetric,lossFN,testLossFn,Optimiser,e,lossArr,valLossArr,accArr,valAcc)
+      trainStep(model,dataLoad,testDataLoad,metric,testMetric,lossFN,testLossFn,Optimiser,e,lossArr,valLossArr,accArr,valAcc,testPres,testRec,testPresA,testRecA)
 
       #get the very last accuracy and see if higher than best
       mrValAcc=valAcc[-1]
@@ -182,7 +193,9 @@ def trainingLoop(epochs,model,dataLoad,testDataLoad,lossFN,testLossFn,Optimiser,
 
       metric.reset()
       testMetric.reset()
-      #lrDecay.step()
+      testPres.reset()
+      testRec.reset()
+      lrDecay.step()
 
   savedModelDict=torch.load('savedModel.tar',map_location=device)
 
@@ -190,6 +203,19 @@ def trainingLoop(epochs,model,dataLoad,testDataLoad,lossFN,testLossFn,Optimiser,
   modelToLoad.load_state_dict(savedModelDict['modelStateDict'])  
   model.eval()
   with torch.no_grad():
+
+
+    presArr=np.asarray(testPresA).T
+    recArr=np.asarray(testRecA).T
+
+
+    c1Pres=presArr[0]
+    c2Pres=presArr[1]
+    c3Pres=presArr[2]
+
+    c1Rec=recArr[0]
+    c2Rec=recArr[1]
+    c3Rec=recArr[2]
 
     yPredict=[] 
     yTrue=[]
@@ -231,8 +257,25 @@ def trainingLoop(epochs,model,dataLoad,testDataLoad,lossFN,testLossFn,Optimiser,
     plt.savefig('NormVsValLoss.png')
     plt.show()
 
+    plt.plot(c1Pres)
+    plt.plot(c2Pres)
+    plt.plot(c3Pres)
+    plt.title("Model Precision")
+    plt.xlabel("Precision")
+    plt.ylabel("Epoch")
+    plt.legend(['Class 1','Class 2','Class 3'])
+    plt.savefig('Precision.png')
+    plt.show()
 
-
+    plt.plot(c1Rec)
+    plt.plot(c2Rec)
+    plt.plot(c3Rec)
+    plt.title("Model Recall")
+    plt.xlabel("Recall")
+    plt.ylabel("Epoch")
+    plt.legend(['Class 1','Class 2','Class 3'])
+    plt.savefig('Recall.png')
+    plt.show()
 
     
 def saveModel(model,epoch,optimiser,vLoss,loss):
@@ -248,4 +291,4 @@ def saveModel(model,epoch,optimiser,vLoss,loss):
 
    
 
-trainingLoop(25,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric)
+trainingLoop(1,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric,testPreicision,testRecall)
