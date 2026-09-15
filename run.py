@@ -81,6 +81,8 @@ testPreicision=classification.MulticlassPrecision(num_classes=3,average=None)
 testRecall=classification.MulticlassRecall(num_classes=3,average=None)
 metric=metric.to(device)
 testMetric=testMetric.to(device)
+testPreicision=testPreicision.to(device)
+testRecall=testRecall.to(device)
 
 if device is not None:
   FullModel=FullModel.to(device)
