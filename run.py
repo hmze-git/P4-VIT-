@@ -158,8 +158,8 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
   valLossArr.append(validNormLoss.cpu().item())
   accArr.append(epochAccuracy.cpu().item())
   valAccArr.append(epochValidationAccuary.cpu().item())
-  testpressArr.append(epochValidationPrecision.cpu().item())
-  testRecArr.append(epochValidationRecall.cpu().item())
+  testpressArr.append(epochValidationPrecision.cpu().numpy())
+  testRecArr.append(epochValidationRecall.cpu().numpy())
 
     
 
