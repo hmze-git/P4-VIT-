@@ -9,12 +9,10 @@ class SkinCancerLSTMViT(nn.Module):
         super().__init__()
         self.skinViT=ViT
         self.Lstm= nn.LSTM(input_size=inputDim,hidden_size=hiddenDim,batch_first=batchFirst)
+        #trying to go from the LSTM straight to output head see if that kills overfitting and lets it learn more
         self.fullConnect=nn.Sequential(
-            nn.Dropout(0.5),
-            nn.Linear(hiddenDim,32),
-            nn.ReLU(),
-            nn.Dropout(0.25),
-            nn.Linear(32,numClasses)
+            nn.Dropout(0.3),
+            nn.Linear(hiddenDim,numClasses)
         )
 
     def forward(self,x,realFrameLen):

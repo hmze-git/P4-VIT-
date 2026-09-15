@@ -45,7 +45,7 @@ modelName="google/vit-base-patch16-224"
 preTrainedViT=ViTForImageClassification.from_pretrained(modelName)
 
 inputDim=768
-hiddenSize=128
+hiddenSize=64
 for p in preTrainedViT.vit.parameters():
   p.requires_grad = False
 
