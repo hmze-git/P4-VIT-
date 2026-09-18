@@ -25,8 +25,8 @@ def setSeed():
 
 setSeed()
 
-NpFile=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\InputFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\OutputTags.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\RealFrameLen.npy",True)
-NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\validationFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\validationTags.npy",r"C:\Users\Hamzah\Desktop\HYP\Honours Project\Pipeline1TFlow\ValidationRealFrameLen.npy",False)
+NpFile=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\InputFilter.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\OutputTags.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\RealFrameLen.npy",True)
+NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\validationFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\validationTags.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\ValidationRealFrameLen.npy",False)
 
 #smallTest=Subset(NpFile,list(range(12)))
 #smallLoader=DataLoader(smallTest,batch_size=2,shuffle=True)
@@ -46,16 +46,36 @@ preTrainedViT=ViTForImageClassification.from_pretrained(modelName)
 
 inputDim=768
 hiddenSize=64
-for p in preTrainedViT.vit.parameters():
-  p.requires_grad = False
+
+
+def unfreezeParts(model,numLayers):
+
+    for p in model.vit.parameters():
+         p.requires_grad = False
+
+
+    totalLayers=len(model.vit.layers)
+
+    for layer in model.vit.layers[totalLayers-numLayers:totalLayers]:
+         layer.requires_grad_(True)
+
+
+
+
+unfreezeParts(preTrainedViT,1)
 
 preTrainedViT.classifier=nn.Identity()
 preTrainedViT.eval()
 
 FullModel=SkinCancerLSTMViT(preTrainedViT,hiddenSize,inputDim,True,3)
 
+
+for n,p in FullModel.named_parameters():
+   if n.startswith("skinViT"):
+    if not n.__contains__("layers.11"):
+      print(f"NAME {n} params {p}")
 #Early Stopping Init
-earlStop=EarlyStopping(patience=5,delta=0)
+earlStop=EarlyStopping(patience=7,delta=0)
 
 
 #linear scaling abtch size rule
@@ -72,7 +92,7 @@ adamOptimiser=torch.optim.AdamW(params=FullModel.parameters(),lr=learningRate,we
 #if this does not work try ReduceLRONPateu for when valid accuracy taps out
 
 
-stepLearnDecay=torch.optim.lr_scheduler.StepLR(adamOptimiser,5,0.5)
+stepLearnDecay=torch.optim.lr_scheduler.ReduceLROnPlateau(adamOptimiser,mode='min',factor=0.5,patience=5,threshold=1e-4,cooldown=0,min_lr=25e-5)
 
 
 metric=classification.Accuracy(task='multiclass',num_classes=3)
@@ -293,4 +313,4 @@ def saveModel(model,epoch,optimiser,vLoss,loss):
 
    
 
-trainingLoop(1,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric,testPreicision,testRecall)
+#trainingLoop(1,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric,testPreicision,testRecall)

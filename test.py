@@ -17,4 +17,19 @@ modelName="google/vit-base-patch16-224"
 preTrainedViT=ViTForImageClassification.from_pretrained(modelName)
 
 
-print(preTrainedViT)
+
+def unfreezeParts(numLayers):
+
+    for p in preTrainedViT.vit.parameters():
+         p.requires_grad = False
+
+
+    totalLayers=len(preTrainedViT.vit.layers)
+
+    for layer in preTrainedViT.vit.layers[totalLayers-numLayers:totalLayers]:
+         layer.requires_grad_(True)
+
+
+
+
+unfreezeParts(1)
