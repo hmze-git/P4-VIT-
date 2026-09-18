@@ -2,7 +2,6 @@ import torch
 from torch.utils.data import DataLoader
 from torch import nn
 import npyFileDataloader
-
 from transformers import ViTForImageClassification
 from torch.utils.data import Subset
 from torchmetrics import classification
@@ -33,8 +32,8 @@ NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Dataset\W
 #smallValidTest=Subset(NPFileTest,list(range(12)))
 #smallValidLoad=DataLoader(smallValidTest,batch_size=2)
 
-trainLoader=DataLoader(NpFile,batch_size=4,shuffle=True)
-testLoader=DataLoader(NPFileTest,batch_size=4) # dont shuffle so that when testing it gets items in same order so it wont fluctuate based on what was given first
+trainLoader=DataLoader(NpFile,batch_size=8,shuffle=True)
+testLoader=DataLoader(NPFileTest,batch_size=8) # dont shuffle so that when testing it gets items in same order so it wont fluctuate based on what was given first
 
 
 #skin cancer link Anwarkh1/Skin_Cancer-Image_Classification
@@ -54,7 +53,7 @@ def unfreezeParts(model,numLayers):
          p.requires_grad = False
 
 
-    totalLayers=len(model.vit.layers)
+    totalLayers = len(model.vit.layers)
 
     for layer in model.vit.layers[totalLayers-numLayers:totalLayers]:
          layer.requires_grad_(True)
@@ -62,31 +61,33 @@ def unfreezeParts(model,numLayers):
 
 
 
-unfreezeParts(preTrainedViT,1)
+unfreezeParts(preTrainedViT,2)
 
 preTrainedViT.classifier=nn.Identity()
-preTrainedViT.eval()
+
 
 FullModel=SkinCancerLSTMViT(preTrainedViT,hiddenSize,inputDim,True,3)
 
-
-for n,p in FullModel.named_parameters():
-   if n.startswith("skinViT"):
-    if not n.__contains__("layers.11"):
-      print(f"NAME {n} params {p}")
 #Early Stopping Init
-earlStop=EarlyStopping(patience=7,delta=0)
+earlStop=EarlyStopping(patience=5,delta=0)
 
 
 #linear scaling abtch size rule
 #when batch changes so must lr rule states new LR=lrOLd*(batchSizeNew/batchSizeOld)
 
-learningRate=0.0002
+learningRate=0.001
 
+lossFunction=nn.CrossEntropyLoss(label_smoothing=0.1)
+validationLossFunction=nn.CrossEntropyLoss(label_smoothing=0.1)
 
-lossFunction=nn.CrossEntropyLoss()
-validationLossFunction=nn.CrossEntropyLoss()
-adamOptimiser=torch.optim.AdamW(params=FullModel.parameters(),lr=learningRate,weight_decay=0.001) # AdamW stated to be typically better for L2Reg lets see it in action
+otherParams = [p for n, p in FullModel.named_parameters() if not n.startswith("skinViT")]
+
+params = [
+    {"params": FullModel.skinViT.parameters(), "lr": learningRate * 0.01, "weight_decay":0.01},
+    {"params": otherParams, "lr": learningRate,"weight_decay":0.01},
+]
+
+adamOptimiser = torch.optim.AdamW(params=params)
 
 #tr step lr reduce learn rate by 10X every 10 epochs
 #if this does not work try ReduceLRONPateu for when valid accuracy taps out
@@ -109,7 +110,7 @@ if device is not None:
 
   if torch.cuda.device_count()>1:
      FullModel=nn.DataParallel(FullModel)
-     
+
 
 
 
@@ -120,15 +121,12 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
   #change to model.eval whne doing validation loss etc
   model.train()
 
-  if isinstance(model,nn.DataParallel):
-      model.module.skinViT.eval()
-  else:
-     model.skinViT.eval()
+
 
   accumulatedLoss=0.0
   validationLoss=0.0
   for batch,(x,y,fr) in enumerate(dataLoader):
- 
+
     xInput=x.to(device)
     yLabel=y.to(device)
     realFrameLen=fr # do not send to cuda because it will break if you do
@@ -140,7 +138,7 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
 
     #Ypredictions might need squeeze to deal with shape mismatch deal later
     loss=lossFunction(yPredictions,yLabel)
-    accumulatedLoss+=loss
+    accumulatedLoss+=loss.item()
     optimiser.zero_grad()
 
     #BACKPROP THE RROR
@@ -151,7 +149,7 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
     #set model to evaluation mode to calc validation loss and accuracy
   model.eval()
   with torch.no_grad():
-    
+
     for batch,(x,y,fr) in enumerate(testLoader):
         validInput=x.to(device)
         validLabel=y.to(device)
@@ -162,7 +160,7 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
         testPres.update(validationPreds,validLabel)
         testRec.update(validationPreds,validLabel)
         validLoss=testLossFunction(validationPreds,validLabel)
-        validationLoss+=validLoss
+        validationLoss+=validLoss.item()
 
 
   epochAccuracy=metric.compute()
@@ -174,16 +172,16 @@ def trainStep(model,dataLoader,testLoader,metric,testMetric,lossFunction,testLos
   validNormLoss=validationLoss/len(testLoader)
 
   print(f"Epoch {epoch} | Loss {normLoss} | Validation Loss {validNormLoss} | Accuracy {epochAccuracy} | Valid Accuracy {epochValidationAccuary} | Class 1 Precision {epochValidationPrecision[0]} | Class 2 Precision {epochValidationPrecision[1]}| Class 3 Precision {epochValidationPrecision[2]} | Class 1 Recall {epochValidationRecall[0]} | Class 2 Recall {epochValidationRecall[1]} | Class 3 Recall {epochValidationRecall[2]}  ")
-  lossArr.append(normLoss.cpu().item())
-  valLossArr.append(validNormLoss.cpu().item())
+  lossArr.append(normLoss)
+  valLossArr.append(validNormLoss)
   accArr.append(epochAccuracy.cpu().item())
   valAccArr.append(epochValidationAccuary.cpu().item())
   testpressArr.append(epochValidationPrecision.cpu().numpy())
   testRecArr.append(epochValidationRecall.cpu().numpy())
 
-    
 
-   
+
+
 def trainingLoop(epochs,model,dataLoad,testDataLoad,lossFN,testLossFn,Optimiser,lrDecay,metric,testMetric,testPres,testRec):
 
   lossArr=[]
@@ -195,7 +193,7 @@ def trainingLoop(epochs,model,dataLoad,testDataLoad,lossFN,testLossFn,Optimiser,
 
   bestValAcc=0.0
   for e in range(epochs):
-      
+
       trainStep(model,dataLoad,testDataLoad,metric,testMetric,lossFN,testLossFn,Optimiser,e,lossArr,valLossArr,accArr,valAcc,testPres,testRec,testPresA,testRecA)
 
       #get the very last accuracy and see if higher than best
@@ -211,18 +209,18 @@ def trainingLoop(epochs,model,dataLoad,testDataLoad,lossFN,testLossFn,Optimiser,
       if earlStop.stopEarly(valLossArr[-1]):
         print(f"Stopping early at Epoch {e}")
         break
-        
+
 
       metric.reset()
       testMetric.reset()
       testPres.reset()
       testRec.reset()
-      lrDecay.step()
+      lrDecay.step(valLossArr[-1])
 
   savedModelDict=torch.load('savedModel.tar',map_location=device)
 
   modelToLoad=model.module if isinstance(model,nn.DataParallel) else model
-  modelToLoad.load_state_dict(savedModelDict['modelStateDict'])  
+  modelToLoad.load_state_dict(savedModelDict['modelStateDict'])
   model.eval()
   with torch.no_grad():
 
@@ -239,7 +237,7 @@ def trainingLoop(epochs,model,dataLoad,testDataLoad,lossFN,testLossFn,Optimiser,
     c2Rec=recArr[1]
     c3Rec=recArr[2]
 
-    yPredict=[] 
+    yPredict=[]
     yTrue=[]
     for batch,(x,y,fr) in enumerate(testDataLoad):
         validInput=x.to(device)
@@ -299,7 +297,7 @@ def trainingLoop(epochs,model,dataLoad,testDataLoad,lossFN,testLossFn,Optimiser,
     plt.savefig('Recall.png')
     plt.show()
 
-    
+
 def saveModel(model,epoch,optimiser,vLoss,loss):
 
   modelToSave=model.module if isinstance(model,nn.DataParallel) else model
@@ -311,6 +309,6 @@ def saveModel(model,epoch,optimiser,vLoss,loss):
       'loss':loss
    },'savedModel.tar')
 
-   
 
-#trainingLoop(1,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric,testPreicision,testRecall)
+
+trainingLoop(25,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric,testPreicision,testRecall)
