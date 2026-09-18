@@ -53,9 +53,9 @@ def unfreezeParts(model,numLayers):
          p.requires_grad = False
 
 
-    totalLayers = len(model.vit.layers)
+    totalLayers = len(model.vit.encoder.layer)
 
-    for layer in model.vit.layers[totalLayers-numLayers:totalLayers]:
+    for layer in model.vit.encoder.layer[totalLayers-numLayers:totalLayers]:
          layer.requires_grad_(True)
 
 
@@ -69,7 +69,7 @@ preTrainedViT.classifier=nn.Identity()
 FullModel=SkinCancerLSTMViT(preTrainedViT,hiddenSize,inputDim,True,3)
 
 #Early Stopping Init
-earlStop=EarlyStopping(patience=5,delta=0)
+earlStop=EarlyStopping(patience=10,delta=0)
 
 
 #linear scaling abtch size rule
@@ -311,4 +311,4 @@ def saveModel(model,epoch,optimiser,vLoss,loss):
 
 
 
-trainingLoop(25,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric,testPreicision,testRecall)
+trainingLoop(100,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric,testPreicision,testRecall)
