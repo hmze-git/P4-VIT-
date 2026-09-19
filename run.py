@@ -24,7 +24,7 @@ def setSeed():
 
 setSeed()
 
-NpFile=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\InputFilter.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\OutputTags.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\RealFrameLen.npy",True)
+NpFile=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\InputFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\OutputTags.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\RealFrameLen.npy",True)
 NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\validationFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\validationTags.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\ValidationRealFrameLen.npy",False)
 
 #smallTest=Subset(NpFile,list(range(12)))
@@ -32,8 +32,8 @@ NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Dataset\W
 #smallValidTest=Subset(NPFileTest,list(range(12)))
 #smallValidLoad=DataLoader(smallValidTest,batch_size=2)
 
-trainLoader=DataLoader(NpFile,batch_size=8,shuffle=True)
-testLoader=DataLoader(NPFileTest,batch_size=8) # dont shuffle so that when testing it gets items in same order so it wont fluctuate based on what was given first
+trainLoader=DataLoader(NpFile,batch_size=4,shuffle=True)
+testLoader=DataLoader(NPFileTest,batch_size=4) # dont shuffle so that when testing it gets items in same order so it wont fluctuate based on what was given first
 
 
 #skin cancer link Anwarkh1/Skin_Cancer-Image_Classification
@@ -47,15 +47,16 @@ inputDim=768
 hiddenSize=64
 
 
+
 def unfreezeParts(model,numLayers):
 
     for p in model.vit.parameters():
          p.requires_grad = False
 
 
-    totalLayers = len(model.vit.encoder.layer)
+    totalLayers = len(model.vit.layers)
 
-    for layer in model.vit.encoder.layer[totalLayers-numLayers:totalLayers]:
+    for layer in model.vit.layers[totalLayers-numLayers:totalLayers]:
          layer.requires_grad_(True)
 
 
