@@ -14,7 +14,7 @@ class SkinCancerLSTMViT(nn.Module):
         self.Lstm= nn.LSTM(input_size=inputDim,hidden_size=hiddenDim,batch_first=batchFirst)
         #trying to go from the LSTM straight to output head see if that kills overfitting and lets it learn more
         self.fullConnect=nn.Sequential(
-            nn.Dropout(0.5),
+            nn.Dropout(0.3),
             nn.Linear(hiddenDim,numClasses)
         )
 
