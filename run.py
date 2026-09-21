@@ -24,8 +24,8 @@ def setSeed():
 
 setSeed()
 
-NpFile=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\InputFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\OutputTags.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\RealFrameLen.npy",True)
-NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\validationFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\validationTags.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\ValidationRealFrameLen.npy",False)
+NpFile=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\InputFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\OutputTags.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\RealFrameLen.npy",5,True)
+NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\validationFiltered.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\validationTags.npy",r"C:\Users\Hamzah\Desktop\HYP\Dataset\Working\Grey\ValidationRealFrameLen.npy",5,False)
 
 #smallTest=Subset(NpFile,list(range(12)))
 #smallLoader=DataLoader(smallTest,batch_size=2,shuffle=True)
@@ -62,7 +62,7 @@ def unfreezeParts(model,numLayers):
 
 
 
-unfreezeParts(preTrainedViT,2)
+unfreezeParts(preTrainedViT,1)
 
 preTrainedViT.classifier=nn.Identity()
 
@@ -311,5 +311,4 @@ def saveModel(model,epoch,optimiser,vLoss,loss):
    },'savedModel.tar')
 
 
-
-trainingLoop(100,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric,testPreicision,testRecall)
+trainingLoop(50,FullModel,trainLoader,testLoader,lossFunction,validationLossFunction,adamOptimiser,stepLearnDecay,metric,testMetric,testPreicision,testRecall)
