@@ -13,7 +13,7 @@ class SkinCancerLSTMViT(nn.Module):
         self.InputDropout=nn.Dropout(0.3)
         self.fullConnect=nn.Sequential(
             nn.Linear(in_features=inputDim,out_features=hiddenDim),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             nn.Dropout(0.3),
             nn.Linear(hiddenDim,numClasses)
         )
@@ -36,7 +36,7 @@ class SkinCancerLSTMViT(nn.Module):
         tfMask=torch.arange(f,device=extractedFeatures.device).unsqueeze(0)  # go from 1d vector to tensor (1,f)
         realFrameLen=realFrameLen.unsqueeze(1) # tensor of (batch,1) obtained mismatch casues stretch
         tfMask=tfMask<realFrameLen
-        #tf becomes (b,f)  of true and false
+        #tf becomes (b,f)  
 
         #add another dim rem that post vit shape is b,f,features this way it matches
         #Brodcasting applied makes features match extracted features

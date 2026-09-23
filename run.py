@@ -32,8 +32,8 @@ NPFileTest=npyFileDataloader.NumpyLoader(r"C:\Users\Hamzah\Desktop\HYP\Dataset\W
 #smallValidTest=Subset(NPFileTest,list(range(12)))
 #smallValidLoad=DataLoader(smallValidTest,batch_size=2)
 
-trainLoader=DataLoader(NpFile,batch_size=4,shuffle=True)
-testLoader=DataLoader(NPFileTest,batch_size=4) # dont shuffle so that when testing it gets items in same order so it wont fluctuate based on what was given first
+trainLoader=DataLoader(NpFile,batch_size=6,shuffle=True)
+testLoader=DataLoader(NPFileTest,batch_size=6) # dont shuffle so that when testing it gets items in same order so it wont fluctuate based on what was given first
 
 
 #skin cancer link Anwarkh1/Skin_Cancer-Image_Classification
@@ -53,8 +53,11 @@ def unfreezeParts(model,numLayers):
     for p in model.vit.parameters():
          p.requires_grad = False
 
+    if numLayers==0:
+       return
 
     totalLayers = len(model.vit.layers)
+
 
     for layer in model.vit.layers[totalLayers-numLayers:totalLayers]:
          layer.requires_grad_(True)
@@ -62,7 +65,7 @@ def unfreezeParts(model,numLayers):
 
 
 
-unfreezeParts(preTrainedViT,1)
+unfreezeParts(preTrainedViT,0)
 
 preTrainedViT.classifier=nn.Identity()
 
@@ -84,9 +87,12 @@ validationLossFunction=nn.CrossEntropyLoss(label_smoothing=0.1)
 otherParams = [p for n, p in FullModel.named_parameters() if not n.startswith("skinViT")]
 
 params = [
-    {"params": FullModel.skinViT.parameters(), "lr": learningRate * 0.01, "weight_decay":0.01},
+    {"params": FullModel.skinViT.parameters(), "lr": learningRate * 0.01, "weight_decay":0.2},
     {"params": otherParams, "lr": learningRate,"weight_decay":0.01},
 ]
+
+
+
 
 adamOptimiser = torch.optim.AdamW(params=params)
 

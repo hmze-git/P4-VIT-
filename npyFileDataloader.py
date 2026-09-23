@@ -28,7 +28,9 @@ class NumpyLoader(Dataset):
                         v2.ColorJitter(brightness=0.3,contrast=0.2),
                         v2.RandomHorizontalFlip(0.5),
                         v2.RandomRotation(15),
-                        normalise
+                        v2.RandAugment(5,5),
+                        v2.RandomErasing(0.25),
+                        normalise,
                     ])
         else:
              self.transformed=v2.Compose([
